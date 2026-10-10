@@ -61,7 +61,7 @@ def free_port(port):
         try:
             s.bind(('0.0.0.0', port))
         except OSError as exc:
-            raise ValueError(f'Port {port} is occupied / پورت {port} اشغال است؛ پورت دیگری انتخاب کنید یا راهنمای همزیستی با وب‌سرور را بخوانید.') from exc
+            raise ValueError(f'Port {port} is occupied. Choose another port or see the existing web server setup guide.') from exc
 
 
 def unit(name, command):
@@ -296,11 +296,11 @@ def service_units():
 def service(action):
     names = service_units()
     if not names:
-        raise ValueError('No configured services / ابتدا نود را راه‌اندازی کنید.')
+        raise ValueError('No configured services. Set up a node first.')
     run(['systemctl', action, *names])
     if action != 'stop':
         run(['systemctl', 'is-active', *names])
-    print('Done / انجام شد. ' + ('بررسی سلامت ایران حدود ۲۰ ثانیه زمان می‌برد.' if action != 'stop' else 'اتصال‌های وابسته به تانل متوقف شدند.'))
+    print('Done. ' + ('Initial health checks on Iran take about 20 seconds.' if action != 'stop' else 'Tunnel connections have been stopped.'))
 
 
 def panel():
@@ -323,42 +323,42 @@ def doctor():
 
 def menu():
     while True:
-        print('''\nNaiveBridge 0.1.0
-  1) راه‌اندازی نود خارج
-  2) افزودن کد نود در ایران
-  3) وضعیت سرویس‌ها و مسیرها
-  4) تنظیمات خروجی پنل ایران
-  5) حذف نود از ایران
-  6) آزمون اتصال از ایران
-  7) نمایش دوبارهٔ کد اتصال در خارج
-  8) راه‌اندازی مجدد سرویس‌ها
-  9) توقف سرویس‌ها
- 10) شروع سرویس‌ها
-  0) خروج''')
-        choice = input('گزینه / Select: ').strip()
+        print('''\nNaiveBridge 0.1.1
+  1) Set up an outside node
+  2) Add a node on Iran
+  3) Service and route status
+  4) Iran panel outbound settings
+  5) Remove a node from Iran
+  6) Test connections from Iran
+  7) Show outside node pairing code
+  8) Restart services
+  9) Stop services
+ 10) Start services
+  0) Exit''')
+        choice = input('Select: ').strip()
         if choice == '0':
             return
         try:
             if choice == '1':
-                print('دامنه باید مستقیم به IP خارج اشاره کند؛ ابر کلودفلیر خاموش باشد.')
-                ident = input('نام نود [fi1]: ').strip() or 'fi1'
-                address = input('IP عمومی سرور خارج: ').strip()
-                domain = input('دامنه یا زیردامنه: ').strip().lower()
-                port = int(input('پورت آزاد HTTPS [443]: ') or 443)
-                cert = input('مسیر fullchain یا Enter برای صدور خودکار [auto؛ نیازمند پورت آزاد 80]: ').strip() or 'auto'
-                key = 'auto' if cert == 'auto' else input('مسیر کلید خصوصی گواهی: ').strip()
+                print('The domain must point directly to the outside IP. Disable the Cloudflare proxy (DNS only).')
+                ident = input('Node name [fi1]: ').strip() or 'fi1'
+                address = input('Outside server public IP: ').strip()
+                domain = input('Domain or subdomain: ').strip().lower()
+                port = int(input('Available HTTPS port [443]: ') or 443)
+                cert = input('Fullchain path or Enter for automatic issuance [auto; requires free port 80]: ').strip() or 'auto'
+                key = 'auto' if cert == 'auto' else input('Certificate private key path: ').strip()
                 outside(argparse.Namespace(id=ident, address=address, domain=domain, port=port, backend=20300, cert=cert, key=key))
             elif choice == '2':
-                print('کد NB1 محرمانه است. هنگام چسباندن، روی صفحه نمایش داده نمی‌شود.')
-                add(getpass.getpass('کد اتصال: '))
+                print('The NB1 pairing code is secret. Pasted input will not be displayed.')
+                add(getpass.getpass('Pairing code: '))
             elif choice == '3':
                 status()
             elif choice == '4':
                 panel()
             elif choice == '5':
-                ident = input('نام نود برای حذف از ایران: ').strip()
+                ident = input('Node name to remove from Iran: ').strip()
                 if not any(e['node']['id'] == ident for e in entries()):
-                    raise ValueError('Unknown node / این نود وجود ندارد.')
+                    raise ValueError('Unknown node.')
                 apply_iran([e for e in entries() if e['node']['id'] != ident])
             elif choice == '6':
                 try:
@@ -366,11 +366,11 @@ def menu():
                 except SystemExit:
                     pass
             elif choice == '7':
-                export(input('نام نود [fi1]: ').strip() or 'fi1')
+                export(input('Node name [fi1]: ').strip() or 'fi1')
             elif choice in ('8', '9', '10'):
                 service({'8': 'restart', '9': 'stop', '10': 'start'}[choice])
             else:
-                print('گزینه نامعتبر است.')
+                print('Invalid selection.')
         except Exception as exc:
             print(type(exc).__name__ + ': ' + str(exc))
 
@@ -383,7 +383,7 @@ def export(ident):
 
 def main():
     parser = argparse.ArgumentParser(description='NaiveBridge: HTTPS egress for a local Iran panel')
-    parser.add_argument('--version', action='version', version='NaiveBridge 0.1.0')
+    parser.add_argument('--version', action='version', version='NaiveBridge 0.1.1')
     sub = parser.add_subparsers(dest='command')
     for name in ('menu', 'status', 'panel', 'watch', 'doctor', 'start', 'stop', 'restart'):
         sub.add_parser(name)
@@ -442,5 +442,5 @@ if __name__ == '__main__':
         print(type(exc).__name__ + ': ' + str(exc), file=sys.stderr)
         raise SystemExit(1)
     except (KeyboardInterrupt, EOFError):
-        print('\nخروج / Exiting.', file=sys.stderr)
+        print('\nExiting.', file=sys.stderr)
         raise SystemExit(130)

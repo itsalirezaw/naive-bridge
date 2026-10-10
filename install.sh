@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Online bootstrap. For an offline release bundle, use install-local.sh.
 set -euo pipefail
-[[ $(id -u) = 0 ]] || { echo 'Run as root / با کاربر root اجرا کنید.' >&2; exit 1; }
+[[ $(id -u) = 0 ]] || { echo 'Run as root.' >&2; exit 1; }
 [[ $(uname -s) = Linux && $(uname -m) = x86_64 && -d /run/systemd/system ]] || {
   echo 'NaiveBridge needs Linux x86_64 with systemd.' >&2; exit 1;
 }
-version="${NAIVE_BRIDGE_VERSION:-v0.1.0}"
+version="${NAIVE_BRIDGE_VERSION:-v0.1.1}"
 [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]] || { echo 'Invalid version.' >&2; exit 1; }
 if ! command -v curl >/dev/null || ! test -s /etc/ssl/certs/ca-certificates.crt; then
   command -v apt-get >/dev/null || { echo 'Install curl and ca-certificates first.' >&2; exit 1; }
@@ -16,7 +16,7 @@ work=$(mktemp -d -t naive-bridge.XXXXXXXX)
 trap 'rm -rf -- "$work"' EXIT
 asset=naive-bridge-linux-amd64.tar.gz
 base="https://github.com/itsalirezaw/naive-bridge/releases/download/$version"
-echo "Downloading NaiveBridge $version / دریافت بستهٔ آماده..."
+echo "Downloading NaiveBridge $version..."
 curl --proto '=https' --tlsv1.2 -fL --retry 3 --connect-timeout 15 --max-time 600 "$base/$asset" -o "$work/$asset"
 curl --proto '=https' --tlsv1.2 -fL --retry 3 --connect-timeout 15 --max-time 60 "$base/SHA256SUMS" -o "$work/SHA256SUMS"
 (

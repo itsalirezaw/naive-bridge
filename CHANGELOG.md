@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Use English throughout the CLI: menus, prompts, installer messages and errors.
+- Keep the Persian installation and panel guides, updated to match the English menu.
+- Publish a refreshed offline bundle and point the online installer to v0.1.1.
+
 ## 0.1.0
 
 - Initial public NaiveBridge release based on the tested Web Bridge prototype.

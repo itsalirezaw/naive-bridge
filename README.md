@@ -10,9 +10,9 @@ Server-to-server tunneling powered by **NaiveProxy and Chromium's network stack*
 - Primary TCP transport: NaiveProxy over HTTPS / HTTP/2 with certificate verification.
 - TCP fallback and UDP: VLESS/XHTTP over TLS, using Xray.
 - Multiple outside nodes, local SOCKS outbounds and automatic failover for new connections.
-- Persian setup menu, automatic certificates on an available port 80, and an offline release bundle.
+- English setup menu, Persian documentation, automatic certificates on an available port 80, and an offline release bundle.
 
-**Experimental v0.1.0.** This packages existing transport engines; it does not introduce a new protocol or guarantee resistance to traffic identification or blocking. [Test scope and limitations](docs/testing.fa.md) · [Upstream projects](THIRD-PARTY.md).
+**Experimental v0.1.1.** This packages existing transport engines; it does not introduce a new protocol or guarantee resistance to traffic identification or blocking. [Test scope and limitations](docs/testing.fa.md) · [Upstream projects](THIRD-PARTY.md).
 
 ## Install
 
@@ -36,7 +36,7 @@ GitHub unavailable on Iran? Copy the archive and `SHA256SUMS` from [Releases](ht
 ## Manage
 
 ```bash
-naive-bridge            # Persian menu
+naive-bridge            # English menu
 naive-bridge status
 naive-bridge doctor    # run on Iran; real TCP and UDP checks
 naive-bridge panel
