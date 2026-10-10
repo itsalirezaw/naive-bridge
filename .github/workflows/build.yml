@@ -1,0 +1,18 @@
+name: Build bundle
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y python3 openssl libnss3 ca-certificates
+      - run: bash build-bundle.sh
+      - run: python3 tests/validate_engines.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naive-bridge-linux-amd64
+          path: dist/*
+          retention-days: 14
