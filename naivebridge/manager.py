@@ -3,6 +3,7 @@ import concurrent.futures
 import getpass
 import hashlib
 import http.client
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -14,7 +15,8 @@ import sys
 import time
 import uuid
 
-from . import model, probe, render
+from . import __version__, model, probe, render, setup
+from .setup import free_port
 
 CONF = Path(render.CONF)
 ROOT = Path(render.ROOT)
@@ -54,14 +56,6 @@ def save(path, obj):
 def entries():
     p = CONF / 'iran.json'
     return json.loads(p.read_text())['nodes'] if p.exists() else []
-
-
-def free_port(port):
-    with socket.socket() as s:
-        try:
-            s.bind(('0.0.0.0', port))
-        except OSError as exc:
-            raise ValueError(f'Port {port} is occupied. Choose another port or see the existing web server setup guide.') from exc
 
 
 def unit(name, command):
@@ -163,6 +157,9 @@ def outside(args):
     if descriptor.exists():
         raise ValueError('Node already exists; use export to retrieve its pairing code')
     listen_port = getattr(args, 'listen_port', None) or args.port
+    if args.backend is None:
+        args.backend = setup.backend_port(exclude=(listen_port, args.port))
+        print(f'Internal backend port: {args.backend} (selected automatically; local only).')
     for p in (listen_port, args.backend):
         if not 1 <= p <= 65535:
             raise ValueError('Invalid local port')
@@ -186,18 +183,8 @@ def outside(args):
         args.cert = '/etc/letsencrypt/live/' + n['domain'] + '/fullchain.pem'
         args.key = '/etc/letsencrypt/live/' + n['domain'] + '/privkey.pem'
     # Preserve certbot's live symlinks: resolving to archive/fullchain1.pem would freeze renewal.
-    cert, key = os.path.abspath(args.cert), os.path.abspath(args.key)
-    if any(ch.isspace() for ch in cert + key) or '\n' in cert + key:
-        raise ValueError('Certificate paths must not contain whitespace')
-    if cert.startswith('/root/') or key.startswith('/root/'):
-        raise ValueError('Use certificate paths under /etc; the service cannot access /root')
-    # Verify SAN, expiry, chain presentation and private-key match locally before installation.
-    matched = run(['openssl', 'x509', '-in', cert, '-noout', '-checkhost', n['domain']])
-    if 'does match certificate' not in matched:
-        raise ValueError('Certificate does not cover this domain')
-    run(['openssl', 'x509', '-in', cert, '-noout', '-checkend', '86400'])
-    import ssl
-    ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER).load_cert_chain(cert, key)
+    cert = setup.certificate_fullchain(n['domain'], args.cert)
+    key = setup.certificate_pair(cert, args.key)
     www = CONF / ('www-' + n['id'])
     health = secrets.token_bytes(65536)
     target = www / n['health_path'].lstrip('/')
@@ -321,9 +308,40 @@ def doctor():
         raise SystemExit(1)
 
 
+def outside_menu():
+    print('The domain must point directly to the outside IP. Disable the Cloudflare proxy (DNS only).')
+
+    def ident(value):
+        model.node_id(value)
+        if (CONF / ('node-' + value + '.json')).exists():
+            raise ValueError('Node already exists. Choose another ID, or use menu option 7 to retrieve its pairing code.')
+        return value
+
+    name = setup.prompt('Node name', 'fi1', ident)
+    print('Checking the public IP address. Verify the suggestion before accepting it.')
+    address = setup.prompt('Outside server public IP', setup.public_ip(), lambda value: str(ipaddress.ip_address(value)))
+    domain = setup.prompt('Domain or subdomain', validate=lambda value: model.public_domain(value.lower()))
+
+    def port(value):
+        try:
+            number = int(value)
+        except ValueError as exc:
+            raise ValueError('Enter a port number from 1 to 65535.') from exc
+        free_port(number)
+        return number
+
+    suggestion = setup.available_port(setup.HTTPS_PORTS)
+    public = setup.prompt('Available HTTPS port', str(suggestion) if suggestion else None, port)
+    print(f'Allow TCP {public} in the host/provider firewall. Availability was checked locally only.')
+    backend = setup.backend_port(exclude=(public,))
+    print(f'Internal backend port: {backend} (selected automatically; local only).')
+    cert, key = setup.prompt_certificates(domain)
+    outside(argparse.Namespace(id=name, address=address, domain=domain, port=public, backend=backend, cert=cert, key=key))
+
+
 def menu():
     while True:
-        print('''\nNaiveBridge 0.1.1
+        print(f'''\nNaiveBridge {__version__}
   1) Set up an outside node
   2) Add a node on Iran
   3) Service and route status
@@ -334,20 +352,19 @@ def menu():
   8) Restart services
   9) Stop services
  10) Start services
-  0) Exit''')
+  0) Exit
+
+  ------------------------------------------------------
+  By itsalirezaw
+  GitHub   https://github.com/itsalirezaw
+  YouTube  https://www.youtube.com/@ialirezaw
+  ------------------------------------------------------''')
         choice = input('Select: ').strip()
         if choice == '0':
             return
         try:
             if choice == '1':
-                print('The domain must point directly to the outside IP. Disable the Cloudflare proxy (DNS only).')
-                ident = input('Node name [fi1]: ').strip() or 'fi1'
-                address = input('Outside server public IP: ').strip()
-                domain = input('Domain or subdomain: ').strip().lower()
-                port = int(input('Available HTTPS port [443]: ') or 443)
-                cert = input('Fullchain path or Enter for automatic issuance [auto; requires free port 80]: ').strip() or 'auto'
-                key = 'auto' if cert == 'auto' else input('Certificate private key path: ').strip()
-                outside(argparse.Namespace(id=ident, address=address, domain=domain, port=port, backend=20300, cert=cert, key=key))
+                outside_menu()
             elif choice == '2':
                 print('The NB1 pairing code is secret. Pasted input will not be displayed.')
                 add(getpass.getpass('Pairing code: '))
@@ -376,14 +393,13 @@ def menu():
 
 
 def export(ident):
-    if not __import__('re').fullmatch('[a-z][a-z0-9]{0,15}', ident):
-        raise ValueError('Invalid node ID')
+    model.node_id(ident)
     print(model.encode(json.loads((CONF / ('node-' + ident + '.json')).read_text())))
 
 
 def main():
     parser = argparse.ArgumentParser(description='NaiveBridge: HTTPS egress for a local Iran panel')
-    parser.add_argument('--version', action='version', version='NaiveBridge 0.1.1')
+    parser.add_argument('--version', action='version', version='NaiveBridge ' + __version__)
     sub = parser.add_subparsers(dest='command')
     for name in ('menu', 'status', 'panel', 'watch', 'doctor', 'start', 'stop', 'restart'):
         sub.add_parser(name)
@@ -397,7 +413,7 @@ def main():
     p.add_argument('--cert', default='auto', help='Fullchain path, or auto for standalone certbot')
     p.add_argument('--key', default='auto', help='Private key path when using an existing certificate')
     p.add_argument('--port', type=int, default=443)
-    p.add_argument('--backend', type=int, default=20300)
+    p.add_argument('--backend', type=int, help='Internal port; default: first free port in 20300-20399')
     p.add_argument('--listen-port', type=int, help='Local HTTPS listener behind an existing TCP proxy')
     p.add_argument('--proxy-protocol', action='store_true', help='Accept PROXY headers only from a loopback TCP proxy')
     args = parser.parse_args()

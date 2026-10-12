@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+- Suggest the outside public IP; Enter accepts it and manual override remains available.
+- Prefer free HTTPS ports starting with 443; select a free internal backend automatically, including for CLI setup.
+- Detect matching existing certificates and suggest fullchain/key paths; retain certbot auto issuance when needed.
+- Validate each setup answer immediately and retry only the invalid field, with clear English errors for port numbers or directories entered as certificate files.
+- Check IPv4 and IPv6 listeners when selecting free ports.
+- Add the author's GitHub and YouTube links to the English menu footer.
+
 ## 0.1.1
 
 - Use English throughout the CLI: menus, prompts, installer messages and errors.

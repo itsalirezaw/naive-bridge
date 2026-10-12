@@ -6,19 +6,30 @@ import re
 import uuid
 
 
+def node_id(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[a-z][a-z0-9]{0,15}', value) or value in ('auto', 'api', 'blocked'):
+        raise ValueError('Invalid node ID. Use 1-16 lowercase ASCII letters or digits, starting with a letter; auto, api and blocked are reserved.')
+    return value
+
+
+def public_domain(value):
+    if not isinstance(value, str) or len(value) > 253 or not re.fullmatch(r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}', value):
+        raise ValueError('Enter a public domain name without https://, a port or a path.')
+    return value
+
+
 def node(value):
     if not isinstance(value, dict) or value.get('version') != 1:
         raise ValueError('Unsupported node descriptor')
     n = dict(value)
-    for key in ('id', 'username', 'password'):
+    node_id(n.get('id'))
+    for key in ('username', 'password'):
         if not isinstance(n.get(key), str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', n[key]):
             raise ValueError('Invalid ' + key)
-    if not re.fullmatch(r'[a-z][a-z0-9]{0,15}', n['id']) or n['id'] in ('auto', 'api', 'blocked') or len(n['password']) < 24:
-        raise ValueError('Node ID too long or password too short')
+    if len(n['password']) < 24:
+        raise ValueError('Password must contain at least 24 characters')
     ipaddress.ip_address(n['address'])
-    domain = n.get('domain', '')
-    if not isinstance(domain, str) or len(domain) > 253 or not re.fullmatch(r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}', domain):
-        raise ValueError('Invalid public DNS name')
+    public_domain(n.get('domain', ''))
     if type(n.get('port')) is not int or not 1 <= n['port'] <= 65535:
         raise ValueError('Invalid port')
     n['uuid'] = str(uuid.UUID(n['uuid']))

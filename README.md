@@ -10,9 +10,9 @@ Server-to-server tunneling powered by **NaiveProxy and Chromium's network stack*
 - Primary TCP transport: NaiveProxy over HTTPS / HTTP/2 with certificate verification.
 - TCP fallback and UDP: VLESS/XHTTP over TLS, using Xray.
 - Multiple outside nodes, local SOCKS outbounds and automatic failover for new connections.
-- English setup menu, Persian documentation, automatic certificates on an available port 80, and an offline release bundle.
+- English setup menu with suggested public IP, free ports and existing certificate paths; Persian documentation and an offline release bundle.
 
-**Experimental v0.1.1.** This packages existing transport engines; it does not introduce a new protocol or guarantee resistance to traffic identification or blocking. [Test scope and limitations](docs/testing.fa.md) · [Upstream projects](THIRD-PARTY.md).
+**Experimental v0.1.2.** This packages existing transport engines; it does not introduce a new protocol or guarantee resistance to traffic identification or blocking. [Test scope and limitations](docs/testing.fa.md) · [Upstream projects](THIRD-PARTY.md).
 
 ## Install
 
@@ -24,8 +24,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/itsalirezaw/naive-bridge/mai
 
 If curl is missing: `apt-get update && apt-get install -y curl ca-certificates`.
 
-1. Point a DNS-only hostname to Outside. Allow its HTTPS port (default TCP 443); automatic certificate issuance also needs an available, reachable TCP 80.
-2. On Outside, choose **1** and enter the node ID, public IP, hostname and port. Copy the secret `NB1.` pairing code.
+1. Point a DNS-only hostname to Outside. Allow the selected HTTPS port; automatic certificate issuance also needs an available, reachable TCP 80.
+2. On Outside, choose **1**. Enter a node ID and hostname; verify and accept the suggested public IP, free HTTPS port and matching certificate paths with Enter, or override them. The internal port is selected automatically. If no matching certificate exists, Enter selects automatic issuance. Copy the secret `NB1.` pairing code.
 3. On Iran, choose **2** and paste the code. Input is hidden. Repeat for additional nodes with distinct IDs.
 4. Run `naive-bridge doctor`, then `naive-bridge panel`. Add the generated SOCKS outbounds to the Iran panel and route a test inbound to `naive-bridge-auto`.
 
