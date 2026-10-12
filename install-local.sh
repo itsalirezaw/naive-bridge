@@ -46,5 +46,6 @@ export PYTHONUTF8=1
 exec /usr/bin/python3 -m naivebridge.manager "$@"
 EOF
 chmod 755 /usr/local/bin/naive-bridge
+/usr/local/bin/naive-bridge refresh-certificates
 echo 'Installed. Use: naive-bridge'
 if [[ "${1:-}" != --no-menu ]]; then exec /usr/local/bin/naive-bridge; fi

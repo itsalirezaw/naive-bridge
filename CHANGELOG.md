@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3
+
+- Automatically obtain certificates through the official Certbot Nginx authenticator when host Nginx is active, without stopping it or installing TLS into its websites.
+- Back up and validate Nginx configuration; use standalone issuance when Nginx is inactive and TCP 80 is free.
+- Preserve Certbot's renewal method and reuse an active Certbot timer, or create a certificate-specific renewal timer if none is active.
+- Migrate existing standalone renewals to Nginx with a validated Certbot reconfiguration; preserve existing webroot/DNS methods and reject unsafe custom-hook migrations.
+- Reload renewed certificates in the bundled Caddy via SIGUSR1 instead of restarting the tunnel. Ignore unrelated certificates and stopped nodes.
+- Refresh renewal hooks for existing nodes during installation and with `naive-bridge refresh-certificates`.
+
 ## 0.1.2
 
 - Suggest the outside public IP; Enter accepts it and manual override remains available.

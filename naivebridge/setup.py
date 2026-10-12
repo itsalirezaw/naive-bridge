@@ -151,15 +151,14 @@ def prompt_certificates(domain):
     if found:
         print('Found a matching certificate. Press Enter to use it, or type auto to request a new one.')
     else:
-        print('Press Enter for automatic issuance (requires free, reachable TCP port 80), or enter an existing fullchain.pem path.')
+        print('Press Enter for automatic issuance via active Nginx or free TCP port 80, or enter an existing fullchain.pem path.')
     print('This is a file path, not a port number.')
 
     def fullchain(value):
         if value == 'auto':
-            try:
-                free_port(80)
-            except ValueError as exc:
-                raise ValueError('Automatic issuance requires free TCP port 80. Enter an existing fullchain.pem path instead.') from exc
+            from .certificates import method
+            selected = method()
+            print('Automatic certificate method: ' + selected + ' (TCP port 80 must be reachable from the Internet).')
             return value
         return certificate_fullchain(domain, value)
 

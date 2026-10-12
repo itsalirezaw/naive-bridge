@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from naivebridge import manager, model, setup
+from naivebridge import certificates, manager, model, setup
 
 
 class SetupTests(unittest.TestCase):
@@ -105,7 +105,7 @@ class SetupTests(unittest.TestCase):
             self.assertIn('menu option 7', output.getvalue())
 
     def test_auto_certificate_retries_when_port_80_is_busy(self):
-        with patch.object(setup, 'existing_certificate', return_value=None), patch.object(setup, 'free_port', side_effect=[ValueError('occupied'), None]), patch('builtins.input', side_effect=['', 'auto']), contextlib.redirect_stdout(io.StringIO()) as output:
+        with patch.object(setup, 'existing_certificate', return_value=None), patch.object(certificates, 'method', side_effect=[ValueError('Enter an existing fullchain.pem file'), 'standalone']), patch('builtins.input', side_effect=['', 'auto']), contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(setup.prompt_certificates('node.example.com'), ('auto', 'auto'))
         self.assertIn('existing fullchain.pem', output.getvalue())
 

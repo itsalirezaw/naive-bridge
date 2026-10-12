@@ -8,14 +8,14 @@ import json
 import os
 from pathlib import Path
 import secrets
-import shutil
+import shlex
 import socket
 import subprocess
 import sys
 import time
 import uuid
 
-from . import __version__, model, probe, render, setup
+from . import __version__, certificates, model, probe, render, setup
 from .setup import free_port
 
 CONF = Path(render.CONF)
@@ -167,24 +167,11 @@ def outside(args):
     if listen_port == args.backend:
         raise ValueError('Public and backend ports must differ')
     if args.cert == 'auto':
-        if n['address'] not in {item[4][0] for item in socket.getaddrinfo(n['domain'], 80)}:
-            raise ValueError('Domain must resolve directly to the supplied outside IP')
-        free_port(80)
-        certbot = shutil.which('certbot') or ('/snap/bin/certbot' if Path('/snap/bin/certbot').exists() else None)
-        if not certbot:
-            apt = shutil.which('apt-get')
-            if not apt:
-                raise ValueError('Install certbot first, or supply existing --cert and --key paths')
-            print('Installing certbot for automatic certificate issuance...', flush=True)
-            subprocess.run([apt, 'update'], check=True, timeout=180)
-            subprocess.run([apt, 'install', '-y', 'certbot'], check=True, timeout=180)
-            certbot = shutil.which('certbot')
-        subprocess.run([certbot, 'certonly', '--standalone', '--non-interactive', '--agree-tos', '--register-unsafely-without-email', '-d', n['domain']], check=True, timeout=180)
-        args.cert = '/etc/letsencrypt/live/' + n['domain'] + '/fullchain.pem'
-        args.key = '/etc/letsencrypt/live/' + n['domain'] + '/privkey.pem'
+        args.cert, args.key = certificates.obtain(n['domain'], n['address'])
     # Preserve certbot's live symlinks: resolving to archive/fullchain1.pem would freeze renewal.
     cert = setup.certificate_fullchain(n['domain'], args.cert)
     key = setup.certificate_pair(cert, args.key)
+    certificates.prepare_renewal(cert)
     www = CONF / ('www-' + n['id'])
     health = secrets.token_bytes(65536)
     target = www / n['health_path'].lstrip('/')
@@ -204,13 +191,7 @@ def outside(args):
     run(['systemctl', 'enable', '--now', 'naive-bridge-exit-' + n['id'], 'naive-bridge-https-' + n['id']])
     run(['systemctl', 'is-active', 'naive-bridge-exit-' + n['id'], 'naive-bridge-https-' + n['id']])
     save(descriptor, n)
-    # Certbot updates referenced files; reload these isolated listeners after renewal.
-    hooks = Path('/etc/letsencrypt/renewal-hooks/deploy')
-    if cert.startswith('/etc/letsencrypt/'):
-        hooks.mkdir(parents=True, exist_ok=True)
-        write(hooks / ('naive-bridge-' + n['id']), '#!/bin/sh\nset -eu\n' +
-              f'{ROOT}/bin/caddy validate --config {caddy} --adapter caddyfile >/dev/null 2>&1\n' +
-              f'systemctl restart naive-bridge-https-{n["id"]}\n', 0o700)
+    certificates.configure_renewal(n['id'], cert, caddy, ROOT, write)
     print('Outside node ready. Pairing code is secret; copy it only to your Iran server:')
     print(model.encode(n))
 
@@ -339,6 +320,19 @@ def outside_menu():
     outside(argparse.Namespace(id=name, address=address, domain=domain, port=public, backend=backend, cert=cert, key=key))
 
 
+def refresh_certificates():
+    for path in sorted(CONF.glob('node-*.json')):
+        ident = model.node(json.loads(path.read_text()))['id']
+        caddy = CONF / ('Caddyfile-' + ident)
+        for line in caddy.read_text().splitlines():
+            fields = shlex.split(line)
+            if len(fields) == 3 and fields[0] == 'tls':
+                cert = fields[1]
+                certificates.prepare_renewal(cert)
+                certificates.configure_renewal(ident, cert, caddy, ROOT, write)
+                break
+
+
 def menu():
     while True:
         print(f'''\nNaiveBridge {__version__}
@@ -401,7 +395,7 @@ def main():
     parser = argparse.ArgumentParser(description='NaiveBridge: HTTPS egress for a local Iran panel')
     parser.add_argument('--version', action='version', version='NaiveBridge ' + __version__)
     sub = parser.add_subparsers(dest='command')
-    for name in ('menu', 'status', 'panel', 'watch', 'doctor', 'start', 'stop', 'restart'):
+    for name in ('menu', 'status', 'panel', 'watch', 'doctor', 'start', 'stop', 'restart', 'refresh-certificates'):
         sub.add_parser(name)
     p = sub.add_parser('add'); p.add_argument('--file', help='Secret pairing-code file; otherwise read hidden prompt')
     p.add_argument('--replace', action='store_true', help='Replace this node without changing its local port or priority')
@@ -424,6 +418,9 @@ def main():
         path.chmod(0o700)
     if args.command == 'watch':
         watch(); return
+    if args.command == 'refresh-certificates':
+        # Upgrade only atomic renewal hooks/timers; do not restart active nodes.
+        refresh_certificates(); return
     # Serialize mutations and export, including interactive menu operations.
     import fcntl
     with open(STATE / 'manager.lock', 'w') as lock:
