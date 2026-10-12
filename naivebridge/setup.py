@@ -47,19 +47,20 @@ def public_ip():
     return None
 
 
-def free_port(port):
+def free_port(port, udp=False):
     if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError('Port must be a number from 1 to 65535.')
-    for family, address in ((socket.AF_INET, '0.0.0.0'), (socket.AF_INET6, '::')):
-        try:
-            with socket.socket(family) as sock:
-                if family == socket.AF_INET6:
-                    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
-                sock.bind((address, port))
-        except OSError as exc:
-            if family == socket.AF_INET6 and exc.errno in (errno.EAFNOSUPPORT, errno.EPROTONOSUPPORT, errno.EADDRNOTAVAIL):
-                continue
-            raise ValueError(f'Port {port} is unavailable. Choose another free port.') from exc
+    for kind in ((socket.SOCK_STREAM, socket.SOCK_DGRAM) if udp else (socket.SOCK_STREAM,)):
+        for family, address in ((socket.AF_INET, '0.0.0.0'), (socket.AF_INET6, '::')):
+            try:
+                with socket.socket(family, kind) as sock:
+                    if family == socket.AF_INET6:
+                        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+                    sock.bind((address, port))
+            except OSError as exc:
+                if family == socket.AF_INET6 and exc.errno in (errno.EAFNOSUPPORT, errno.EPROTONOSUPPORT, errno.EADDRNOTAVAIL):
+                    continue
+                raise ValueError(f'Port {port} is unavailable. Choose another free port.') from exc
 
 
 def available_port(candidates, exclude=()):

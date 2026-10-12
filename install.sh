@@ -5,7 +5,7 @@ set -euo pipefail
 [[ $(uname -s) = Linux && $(uname -m) = x86_64 && -d /run/systemd/system ]] || {
   echo 'NaiveBridge needs Linux x86_64 with systemd.' >&2; exit 1;
 }
-version="${NAIVE_BRIDGE_VERSION:-v0.1.3}"
+version="${NAIVE_BRIDGE_VERSION:-v0.1.4}"
 [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]] || { echo 'Invalid version.' >&2; exit 1; }
 if ! command -v curl >/dev/null || ! test -s /etc/ssl/certs/ca-certificates.crt; then
   command -v apt-get >/dev/null || { echo 'Install curl and ca-certificates first.' >&2; exit 1; }

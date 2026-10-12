@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4
+
+- Select and persist free Iran panel, API and per-node transport ports; skip occupied TCP/UDP ports instead of failing on fixed defaults.
+- Preserve existing and legacy endpoint ports when adding, replacing or removing nodes; use saved ports consistently in routing, health checks, status and panel output.
+- Show clear outside/Iran completion banners with the next steps and pause before returning to the menu.
+- Display outside pairing codes in a labeled copy area and accept visible input on Iran with immediate validation and an accepted-node summary.
+- Explain local Iran ports versus public outside HTTPS ports and update the Persian panel guide to use actual generated settings.
+
 ## 0.1.3
 
 - Automatically obtain certificates through the official Certbot Nginx authenticator when host Nginx is active, without stopping it or installing TLS into its websites.

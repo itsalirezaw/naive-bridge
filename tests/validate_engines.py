@@ -25,6 +25,7 @@ with tempfile.TemporaryDirectory(prefix='naive-bridge-validate-') as directory:
              '-keyout', key, '-out', cert])
     # A temporary self-signed certificate is used for parser validation only, not client connectivity.
     for name, config in [('iran', render.iran([{'node': NODE, 'slot': 0}, {'node': {**NODE, 'id': 'de1'}, 'slot': 1}])),
+                         ('iran-dynamic', render.iran([{'node': NODE, 'slot': 0, 'ports': {'naive': 20402, 'xhttp': 20403, 'panel': 20404}}], {'auto': 20400, 'api': 20401})),
                          ('outside', render.outside(NODE, 20300))]:
         path = temp / (name + '.json')
         path.write_text(json.dumps(config))

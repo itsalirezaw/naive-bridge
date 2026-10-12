@@ -1,5 +1,6 @@
 """Strict, versioned node descriptors; no shell fragments or TLS bypass options."""
 import base64
+import binascii
 import ipaddress
 import json
 import re
@@ -47,10 +48,15 @@ def encode(n):
 
 
 def decode(text):
-    text = text.strip()
+    if not isinstance(text, str) or len(text) > 16384:
+        raise ValueError('Invalid pairing code. Copy the complete NB1. line from the outside server.')
+    text = re.sub(r'[ \t\r\n]+', '', text)
     if len(text) > 8192 or not text.startswith(('NB1.', 'WB1.')):
-        raise ValueError('Invalid pairing code')
-    return node(json.loads(base64.b64decode(text[4:], altchars=b'-_', validate=True)))
+        raise ValueError('Invalid pairing code. Copy only the complete NB1. line, without labels or quotes.')
+    try:
+        return node(json.loads(base64.b64decode(text[4:], altchars=b'-_', validate=True)))
+    except (ValueError, TypeError, KeyError, binascii.Error) as exc:
+        raise ValueError('Incomplete or invalid pairing code. Copy the entire NB1. line and try again.') from exc
 
 
 def choose(nodes, healthy):

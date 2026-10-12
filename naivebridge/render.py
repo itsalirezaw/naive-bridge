@@ -1,4 +1,5 @@
 import json
+from . import ports
 
 ROOT = '/opt/naive-bridge'
 CONF = '/etc/naive-bridge'
@@ -14,9 +15,10 @@ def xhttp(n):
             'streamSettings': {'network': 'xhttp', 'security': 'tls', 'tlsSettings': {'serverName': n['domain'], 'alpn': ['h2'], 'fingerprint': 'chrome', 'allowInsecure': False}, 'xhttpSettings': {'path': n['path'], 'mode': 'auto'}}}
 
 
-def iran(entries):
+def iran(entries, local=None):
+    local = ports.shared({'ports': local}) if local is not None else ports.shared()
     c = {'log': {'loglevel': 'warning'}, 'stats': {}, 'api': {'tag': 'api', 'services': ['RoutingService']},
-         'inbounds': [inbound('auto', 20080), {'tag': 'api-in', 'listen': '127.0.0.1', 'port': 20085, 'protocol': 'dokodemo-door', 'settings': {'address': '127.0.0.1'}}],
+         'inbounds': [inbound('auto', local['auto']), {'tag': 'api-in', 'listen': '127.0.0.1', 'port': local['api'], 'protocol': 'dokodemo-door', 'settings': {'address': '127.0.0.1'}}],
          'outbounds': [{'tag': 'blocked', 'protocol': 'blackhole'}],
          'routing': {'rules': [{'type': 'field', 'inboundTag': ['api-in'], 'outboundTag': 'api'}], 'balancers': []}}
     def balanced(tag):
@@ -26,18 +28,18 @@ def iran(entries):
             c['routing']['rules'].append({'type': 'field', 'inboundTag': [tag], 'network': net, 'balancerTag': b})
     balanced('auto')
     for e in entries:
-        n, slot = e['node'], e['slot']
+        n, local_node = e['node'], ports.node(e)
         tag = n['id']
-        c['inbounds'] += [inbound(tag, 20200 + slot), inbound(tag + '-probe', 20101 + 2 * slot)]
-        c['outbounds'] += [xhttp(n), {'tag': tag + '-naive', 'protocol': 'socks', 'settings': {'servers': [{'address': '127.0.0.1', 'port': 20100 + 2 * slot}]}}]
+        c['inbounds'] += [inbound(tag, local_node['panel']), inbound(tag + '-probe', local_node['xhttp'])]
+        c['outbounds'] += [xhttp(n), {'tag': tag + '-naive', 'protocol': 'socks', 'settings': {'servers': [{'address': '127.0.0.1', 'port': local_node['naive']}]}}]
         c['routing']['rules'].append({'type': 'field', 'inboundTag': [tag + '-probe'], 'outboundTag': tag + '-xhttp'})
         balanced(tag)
     return c
 
 
-def naive(n, slot):
+def naive(n, slot, port=None):
     address = '[' + n['address'] + ']' if ':' in n['address'] else n['address']
-    return {'listen': f'socks://127.0.0.1:{20100 + 2 * slot}',
+    return {'listen': f'socks://127.0.0.1:{port if port is not None else 20100 + 2 * slot}',
             'proxy': f'https://{n["username"]}:{n["password"]}@{n["domain"]}:{n["port"]}',
             'host-resolver-rules': f'MAP {n["domain"]} {address}'}
 
